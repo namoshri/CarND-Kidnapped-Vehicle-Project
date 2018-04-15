@@ -28,7 +28,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 
-	//"gen" is the random engine initialized earlier.
+	//"gen" is the random engine.
 	default_random_engine gen;
 
 	//creates a normal (Gaussian) distribution
@@ -54,11 +54,54 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
-	// TODO: Add measurements to each particle and add random Gaussian noise.
-	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
+	// Add measurements to each particle and add random Gaussian noise.
+	// adding noise through std::normal_distribution and std::default_random_engine useful.
+	// Reference:
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 
+	//"gen" is the random engine.
+	default_random_engine gen;
+
+	//Temp variables for code simplicity and avoid multiple calc
+	double yaw_rate_delta = yaw_rate * delta_t;
+	double vel_yaw_rate = velocity / yaw_rate;
+
+	for (int i = 0; i < num_particles; ++i) {
+		double x = particles[i].x;
+		double y = particles[i].y;
+		double theta = particles[i].theta;
+		double theta_yaw_rate = theta + yaw_rate_delta;
+
+
+		//updating x, y and the yaw angle when the yaw rate is not equal to zero:
+		if (fabs(yaw_rate) > 0.0001) {
+			//First get x and y
+			x = x + (vel_yaw_rate * (sin(theta_yaw_rate) - sin(theta)));
+			y = y + (vel_yaw_rate * (cos(theta) - cos(theta_yaw_rate)));
+
+			//..and then update theta as theta is needed in x and y
+			theta = theta + yaw_rate_delta;
+		} else { //updating x, y as yaw rate is zero:
+			x = x + (velocity * delta_t * cos(theta));
+			y = y + (velocity * delta_t * sin(theta));
+		}
+
+		// normal distribution and update for predecition
+		normal_distribution<double> dist_x(x, std_pos[0]);
+		normal_distribution<double> dist_y(y, std_pos[1]);
+		normal_distribution<double> dist_theta(theta, std_pos[2]);
+
+		// Particle before prediction.
+		//DumpParticle(particles[i]);
+
+		particles[i].x = dist_x(gen);
+		particles[i].y = dist_y(gen);
+		particles[i].theta = dist_theta(gen);
+
+		// Particle ater prediction.
+		//DumpParticle(particles[i]);
+	}
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
